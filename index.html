@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FKJ HUNTER | PRO</title>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --panel: #161616;
+            --cyan: #00ffff;
+            --gold: #ffd700;
+            --red: #ff4444;
+            --text: #e0e0e0;
+            --border: #333;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        .container {
+            width: 100%; max-width: 800px;
+            background: var(--panel); border: 1px solid var(--border);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+            padding: 20px; border-radius: 8px;
+        }
+        h1 { text-align: center; color: var(--cyan); margin-bottom: 5px; letter-spacing: 2px; }
+        .sub { text-align: center; color: var(--gold); font-size: 0.9em; margin-bottom: 30px; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .input-group { display: flex; flex-direction: column; }
+        label { color: var(--cyan); font-size: 0.8em; margin-bottom: 5px; }
+        input {
+            background: #000; border: 1px solid var(--border); color: var(--text);
+            padding: 10px; font-family: inherit; outline: none;
+        }
+        input:focus { border-color: var(--cyan); }
+
+        .btn-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        button {
+            flex: 1; padding: 12px; cursor: pointer; border: none; font-weight: bold;
+            font-family: inherit; transition: 0.2s;
+        }
+        .start { background: var(--cyan); color: #000; }
+        .stop { background: var(--red); color: #fff; }
+        button:hover { opacity: 0.8; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .stats { display: flex; justify-content: space-between; background: #000; padding: 15px; border: 1px solid var(--border); margin-bottom: 20px; }
+        .stat-box { text-align: center; }
+        .val { font-size: 1.5em; font-weight: bold; color: var(--gold); }
+        .lbl { font-size: 0.7em; color: #666; }
+
+        .log-box {
+            height: 200px; overflow-y: auto; background: #000; border: 1px solid var(--border);
+            padding: 10px; font-size: 0.8em; color: #888;
+        }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
+        .hit { color: var(--cyan); }
+        .bad { color: #444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FKJ HUNTER</h1>
+        <div class="sub">RAILWAY EDITION // 24/7 MODE</div>
+
+        <div class="grid">
+            <div class="input-group">
+                <label>BOT TOKEN</label>
+                <input type="text" id="token" placeholder="123456:ABC-DEF...">
+            </div>
+            <div class="input-group">
+                <label>CHAT ID</label>
+                <input type="text" id="chat_id" placeholder="-100123456789">
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button class="start" onclick="startHunter()">▶ START HUNTING</button>
+            <button class="stop" onclick="stopHunter()">■ STOP</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box"><div class="val" id="hits">0</div><div class="lbl">HITS</div></div>
+            <div class="stat-box"><div class="val" id="misses">0</div><div class="lbl">MISSES</div></div>
+            <div class="stat-box"><div class="val" id="threads">0</div><div class="lbl">THREADS</div></div>
+        </div>
+
+        <div class="log-box" id="logs">
+            <div class="log-entry">[SYSTEM] Waiting for command...</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        const logsDiv = document.getElementById('logs');
+        const hitsEl = document.getElementById('hits');
+        const missEl = document.getElementById('misses');
+        const threadEl = document.getElementById('threads');
+
+        function log(msg, type='normal') {
+            const div = document.createElement('div');
+            div.className = `log-entry ${type}`;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logsDiv.prepend(div);
+        }
+
+        function connect() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${proto}//${location.host}/ws`);
+            
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if(data.type === 'log') log(data.msg, data.hit ? 'hit' : 'bad');
+                if(data.type === 'stats') {
+                    hitsEl.innerText = data.hits;
+                    missEl.innerText = data.misses;
+                    threadEl.innerText = data.threads;
+                }
+            };
+            ws.onclose = () => setTimeout(connect, 3000);
+        }
+
+        function startHunter() {
+            const token = document.getElementById('token').value;
+            const chat = document.getElementById('chat_id').value;
+            if(!token || !chat) return alert("Enter Token & Chat ID");
+            fetch('/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token, chat_id: chat})
+            }).then(() => log("Hunter Started!"));
+        }
+
+        function stopHunter() {
+            fetch('/stop').then(() => log("Stopping...", "bad"));
+        }
+
+        connect();
+    </script>
+</body>
+</html>
