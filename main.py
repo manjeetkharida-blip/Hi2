@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.websockets import WebSocketDisconnect
 import os
 import threading
-from cfonts import render as cfonts_render
+import sys
 
 app = FastAPI()
 
@@ -98,7 +98,12 @@ class HunterThread(threading.Thread):
                         state["hits"] += 1
                         msg = f"🎯 HIT: {email}\n@{prefix}"
                         self.send_telegram(msg)
-                        asyncio.run_coroutine_threadsafe(self.broadcast(f"[HIT] {msg}"), None)
+                        # Send to Web UI
+                        for client in list(ws_clients):
+                            try:
+                                asyncio.run_coroutine_threadsafe(client.send_json({"type": "log", "msg": msg, "hit": True}), None)
+                            except:
+                                pass
                     else:
                         state["misses"] += 1
                     
@@ -115,10 +120,6 @@ class HunterThread(threading.Thread):
         except:
             pass
 
-    async def broadcast(self, msg):
-        for client in list(ws_clients):
-            await client.send_json({"type": "log", "msg": msg})
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -126,9 +127,9 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            # Keep-alive or handle messages
     except WebSocketDisconnect:
-        ws_clients.remove(websocket)
+        if websocket in ws_clients:
+            ws_clients.remove(websocket)
 
 @app.post("/start")
 async def start_hunter(request: Request):
