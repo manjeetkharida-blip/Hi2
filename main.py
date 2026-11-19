@@ -6,32 +6,48 @@ import time
 import uuid
 import base64
 import requests
-from fastapi import FastAPI, WebSocket, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, WebSocket, Request, Depends, HTTPException, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.websockets import WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import threading
 import sys
+import sqlite3
+import hashlib
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional
 
+# --- APP SETUP ---
 app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# --- UI & CONFIG ---
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return open("index.html").read()
+# --- DATABASE SETUP (SQLite) ---
+DB_FILE = "hunter.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    # Users Table
+    c.execute('''CREATE TABLE IF NOT EXISTS users 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, password TEXT)''')
+    # Hits Table
+    c.execute('''CREATE TABLE IF NOT EXISTS hits 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, email TEXT, username TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # Global State
 state = {
     "running": False,
-    "hits": 0,
-    "misses": 0,
     "threads": 0,
     "token": "",
     "chat_id": ""
 }
-
-ws_clients = []
 
 class HunterThread(threading.Thread):
     def __init__(self, token, chat_id):
@@ -50,7 +66,6 @@ class HunterThread(threading.Thread):
             if prefix in self.used_usernames:
                 continue
             
-            # Check IG Bloks
             try:
                 device = str(uuid.uuid4())
                 family = str(uuid.uuid4())
@@ -95,17 +110,11 @@ class HunterThread(threading.Thread):
                 
                 with self.lock:
                     if hit:
-                        state["hits"] += 1
                         msg = f"🎯 HIT: {email}\n@{prefix}"
                         self.send_telegram(msg)
-                        # Send to Web UI
-                        for client in list(ws_clients):
-                            try:
-                                asyncio.run_coroutine_threadsafe(client.send_json({"type": "log", "msg": msg, "hit": True}), None)
-                            except:
-                                pass
+                        self.save_to_db(email, prefix)
                     else:
-                        state["misses"] += 1
+                        pass
                     
                     self.used_usernames.add(prefix)
                     
@@ -120,16 +129,24 @@ class HunterThread(threading.Thread):
         except:
             pass
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    ws_clients.append(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-    except WebSocketDisconnect:
-        if websocket in ws_clients:
-            ws_clients.remove(websocket)
+    def save_to_db(self, email, username):
+        """Saves hit to SQLite"""
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            # We need a default user_id if not logged in, but let's assume we track by session later
+            # For now, we'll insert without user_id or use a generic ID
+            c.execute("INSERT INTO hits (email, username) VALUES (?, ?)", (email, username))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"DB Error: {e}")
+
+# --- API ROUTES ---
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    return open("index.html").read()
 
 @app.post("/start")
 async def start_hunter(request: Request):
@@ -158,7 +175,30 @@ async def stop_hunter():
 
 @app.get("/stats")
 async def get_stats():
-    return JSONResponse(state)
+    # Fetch recent hits from DB
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT * FROM hits ORDER BY id DESC LIMIT 50")
+        rows = c.fetchall()
+        conn.close()
+        
+        logs = []
+        for row in rows:
+            logs.append({
+                "id": row[0],
+                "email": row[2],
+                "username": row[3],
+                "created_at": row[4]
+            })
+    except:
+        logs = []
+        
+    return JSONResponse({
+        "running": state["running"],
+        "hits_count": len(logs),
+        "logs": logs
+    })
 
 if __name__ == "__main__":
     import uvicorn
