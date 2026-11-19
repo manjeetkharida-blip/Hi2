@@ -3,144 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FKJ HUNTER | PRO</title>
+    <title>FKJ HUNTER // RAILWAY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
-        :root {
-            --bg: #0a0a0a;
-            --panel: #161616;
-            --cyan: #00ffff;
-            --gold: #ffd700;
-            --red: #ff4444;
-            --text: #e0e0e0;
-            --border: #333;
-        }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Courier New', monospace;
-            margin: 0; padding: 20px;
-            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-        }
-        .container {
-            width: 100%; max-width: 800px;
-            background: var(--panel); border: 1px solid var(--border);
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
-            padding: 20px; border-radius: 8px;
-        }
-        h1 { text-align: center; color: var(--cyan); margin-bottom: 5px; letter-spacing: 2px; }
-        .sub { text-align: center; color: var(--gold); font-size: 0.9em; margin-bottom: 30px; }
-        
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .input-group { display: flex; flex-direction: column; }
-        label { color: var(--cyan); font-size: 0.8em; margin-bottom: 5px; }
-        input {
-            background: #000; border: 1px solid var(--border); color: var(--text);
-            padding: 10px; font-family: inherit; outline: none;
-        }
-        input:focus { border-color: var(--cyan); }
-
-        .btn-row { display: flex; gap: 10px; margin-bottom: 20px; }
-        button {
-            flex: 1; padding: 12px; cursor: pointer; border: none; font-weight: bold;
-            font-family: inherit; transition: 0.2s;
-        }
-        .start { background: var(--cyan); color: #000; }
-        .stop { background: var(--red); color: #fff; }
-        button:hover { opacity: 0.8; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .stats { display: flex; justify-content: space-between; background: #000; padding: 15px; border: 1px solid var(--border); margin-bottom: 20px; }
-        .stat-box { text-align: center; }
-        .val { font-size: 1.5em; font-weight: bold; color: var(--gold); }
-        .lbl { font-size: 0.7em; color: #666; }
-
-        .log-box {
-            height: 200px; overflow-y: auto; background: #000; border: 1px solid var(--border);
-            padding: 10px; font-size: 0.8em; color: #888;
-        }
-        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
-        .hit { color: var(--cyan); }
-        .bad { color: #444; }
+        body { background-color: #0f0f0f; color: #00ff00; font-family: 'Courier New', monospace; }
+        .log-entry { border-bottom: 1px solid #333; padding: 5px; word-break: break-all; }
+        .hit { color: #00ff00; }
+        .miss { color: #666; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>FKJ HUNTER</h1>
-        <div class="sub">RAILWAY EDITION // 24/7 MODE</div>
+<body class="p-4 max-w-md mx-auto">
 
-        <div class="grid">
-            <div class="input-group">
-                <label>BOT TOKEN</label>
-                <input type="text" id="token" placeholder="123456:ABC-DEF...">
-            </div>
-            <div class="input-group">
-                <label>CHAT ID</label>
-                <input type="text" id="chat_id" placeholder="-100123456789">
-            </div>
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold tracking-tighter">FKJ HUNTER</h1>
+        <button id="loginBtn" onclick="googleLogin()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Google Login
+        </button>
+        <div id="userInfo" class="hidden text-sm text-gray-400"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+        <input type="text" id="token" placeholder="Bot Token" class="bg-black border border-green-500 p-2 text-sm w-full">
+        <input type="text" id="chatId" placeholder="Chat ID" class="bg-black border border-green-500 p-2 text-sm w-full">
+    </div>
+
+    <div class="flex gap-2 mb-6">
+        <button id="startBtn" onclick="startHunter()" class="flex-1 bg-green-600 hover:bg-green-700 text-black font-bold py-3 rounded">
+            ▶ START HUNTING
+        </button>
+        <button id="stopBtn" onclick="stopHunter()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded hidden">
+            ■ STOP
+        </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-2 mb-6 text-center">
+        <div class="bg-black border border-gray-700 p-2 rounded">
+            <div class="text-xs text-gray-500">HITS</div>
+            <div id="hitsCount" class="text-xl font-bold text-green-400">0</div>
         </div>
-
-        <div class="btn-row">
-            <button class="start" onclick="startHunter()">▶ START HUNTING</button>
-            <button class="stop" onclick="stopHunter()">■ STOP</button>
+        <div class="bg-black border border-gray-700 p-2 rounded">
+            <div class="text-xs text-gray-500">THREADS</div>
+            <div id="threadCount" class="text-xl font-bold text-yellow-400">0</div>
         </div>
-
-        <div class="stats">
-            <div class="stat-box"><div class="val" id="hits">0</div><div class="lbl">HITS</div></div>
-            <div class="stat-box"><div class="val" id="misses">0</div><div class="lbl">MISSES</div></div>
-            <div class="stat-box"><div class="val" id="threads">0</div><div class="lbl">THREADS</div></div>
-        </div>
-
-        <div class="log-box" id="logs">
-            <div class="log-entry">[SYSTEM] Waiting for command...</div>
+        <div class="bg-black border border-gray-700 p-2 rounded">
+            <div class="text-xs text-gray-500">STATUS</div>
+            <div id="statusText" class="text-xl font-bold text-gray-400">IDLE</div>
         </div>
     </div>
 
+    <!-- Live Logs -->
+    <div class="border border-gray-700 rounded h-64 overflow-y-auto bg-black p-2" id="logContainer">
+        <div class="text-center text-gray-600 mt-10">Waiting for logs...</div>
+    </div>
+
     <script>
-        let ws = null;
-        const logsDiv = document.getElementById('logs');
-        const hitsEl = document.getElementById('hits');
-        const missEl = document.getElementById('misses');
-        const threadEl = document.getElementById('threads');
+        // --- FIREBASE SETUP ---
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
+        let currentUser = null;
 
-        function log(msg, type='normal') {
-            const div = document.createElement('div');
-            div.className = `log-entry ${type}`;
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logsDiv.prepend(div);
+        function googleLogin() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth().signInWithPopup(provider).then((result) => {
+                currentUser = result.user;
+                document.getElementById('loginBtn').classList.add('hidden');
+                document.getElementById('userInfo').textContent = currentUser.email;
+                document.getElementById('userInfo').classList.remove('hidden');
+                loadStats();
+            }).catch((error) => console.error(error));
         }
 
-        function connect() {
-            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${proto}//${location.host}/ws`);
-            
-            ws.onmessage = (e) => {
-                const data = JSON.parse(e.data);
-                if(data.type === 'log') log(data.msg, data.hit ? 'hit' : 'bad');
-                if(data.type === 'stats') {
-                    hitsEl.innerText = data.hits;
-                    missEl.innerText = data.misses;
-                    threadEl.innerText = data.threads;
-                }
-            };
-            ws.onclose = () => setTimeout(connect, 3000);
-        }
-
-        function startHunter() {
+        // --- HUNTER LOGIC ---
+        async function startHunter() {
             const token = document.getElementById('token').value;
-            const chat = document.getElementById('chat_id').value;
-            if(!token || !chat) return alert("Enter Token & Chat ID");
-            fetch('/start', {
+            const chatId = document.getElementById('chatId').value;
+            
+            if(!token || !chatId) return alert("Fill Token & Chat ID");
+
+            const res = await fetch('/start', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({token, chat_id: chat})
-            }).then(() => log("Hunter Started!"));
+                body: JSON.stringify({token, chat_id: chatId})
+            });
+            
+            const data = await res.json();
+            updateUI(true);
         }
 
-        function stopHunter() {
-            fetch('/stop').then(() => log("Stopping...", "bad"));
+        async function stopHunter() {
+            await fetch('/stop', {method: 'POST'});
+            updateUI(false);
         }
 
-        connect();
+        function updateUI(running) {
+            document.getElementById('startBtn').classList.toggle('hidden', running);
+            document.getElementById('stopBtn').classList.toggle('hidden', !running);
+            document.getElementById('statusText').textContent = running ? "HUNTING" : "IDLE";
+            document.getElementById('statusText').className = running ? "text-xl font-bold text-green-400 pulse" : "text-xl font-bold text-gray-400";
+        }
+
+        async function loadStats() {
+            const res = await fetch('/stats');
+            const data = await res.json();
+            
+            document.getElementById('hitsCount').textContent = data.hits_count;
+            document.getElementById('threadCount').textContent = data.running ? "ACTIVE" : "0";
+            
+            const container = document.getElementById('logContainer');
+            container.innerHTML = '';
+            
+            if(data.logs.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-600 mt-10">No hits yet.</div>';
+                return;
+            }
+
+            data.logs.forEach(hit => {
+                const div = document.createElement('div');
+                div.className = 'log-entry hit';
+                div.textContent = `[${new Date(hit.created_at).toLocaleTimeString()}] ${hit.email} @${hit.username}`;
+                container.prepend(div);
+            });
+        }
+
+        // Poll for updates every 5 seconds
+        setInterval(loadStats, 5000);
     </script>
 </body>
 </html>
