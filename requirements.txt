@@ -1,5 +1,2 @@
-fastapi
-uvicorn[standard]
-websockets
 requests
 cfonts
